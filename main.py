@@ -4,6 +4,8 @@ import logging
 import threading
 import time
 from datetime import datetime, timedelta
+import random
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,6 +14,9 @@ API_TOKEN = '7880925636:AAEBv-iQKTL6rgGq6Y3PDCtMm38FsMqX194'
 bot = telebot.TeleBot(API_TOKEN)
 
 users_data = {}
+user_authentication = {}   
+
+
 
 
 def main_menu_keyboard():
@@ -20,7 +25,10 @@ def main_menu_keyboard():
     keyboard.add("📈Анализ расходов", "💰Установить бюджет")
     keyboard.add("👀Посмотреть бюджет", "💡Советы по финансовой грамотности")
     keyboard.add("⏰Добавить напоминание", "👀Посмотреть напоминания")
+    keyboard.add("💲Перейти в копилку💲")
     return keyboard
+
+
 
 def reminder_checker():
     while True:
@@ -80,12 +88,6 @@ def main_menu(message):
         view_reminders(message)
 
 
-    elif message.text == "❌Выход":
-        bot.send_message(message.chat.id, "Вы вышли из бота. До свидания!")
-
-
-
-
 
 def add_expense(message):
     user_id = message.from_user.id
@@ -96,7 +98,7 @@ def add_expense(message):
         bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
 
     except ValueError:
-        bot.send_message(message.chat.id, "Пожалуйста, введите корректную сумму.")
+        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
         bot.register_next_step_handler(message, add_expense)
 
 
@@ -144,23 +146,46 @@ def set_budget(message):
         bot.send_message(message.chat.id, f"Ваш бюджет установлен на сумму: {budget}")
         bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
     except ValueError:
-        bot.send_message(message.chat.id, "Пожалуйста, введите корректную сумму бюджета.")
+        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму бюджета.")
         bot.register_next_step_handler(message, set_budget)
 
 
 def financial_tips(message):
-    tips = [
-        "1. Создайте бюджет и придерживайтесь его.",
-        "2. Старайтесь откладывать часть дохода на сбережения.",
-        "3. Избегайте импульсивных покупок.",
-        "4. Изучайте свои расходы и ищите способы их сократить.",
-        "5. Инвестируйте в свое образование и навыки."
+    all_tips = [
+        "Создайте бюджет. Записывайте доходы и расходы, чтобы видеть, куда уходят деньги.",
+        "Ставьте цели. Определите краткосрочные и долгосрочные финансовые цели.",
+        "Экономьте 10% дохода. Отложите часть дохода на сбережения.",
+        "Планируйте расходы. Ищите способы сократить ненужные траты.",
+        "Изучайте кредиты. Понимание условий кредитования поможет избежать переплат.",
+        "Следите за кредитной историей. Проверяйте свою кредитную историю на наличие ошибок.",
+        "Инвестируйте. Начинайте инвестировать, даже если суммы небольшие.",
+        "Создавайте резервный фонд. Накопите средства на 3-6 месяцев расходов.",
+        "Изучайте финансовую литературу. Читайте книги и статьи о финансах.",
+        "Будьте осторожны с кредитными картами. Используйте их разумно, чтобы избежать долгов.",
+        "Используйте приложения для учета. Устанавливайте приложения для отслеживания финансов.",
+        "Сравнивайте цены. Перед покупкой сравнивайте цены в разных магазинах.",
+        "Избегайте импульсивных покупок. Дайте себе время подумать перед покупкой.",
+        "Следите за скидками и акциями. Используйте скидки, чтобы сэкономить.",
+        "Планируйте крупные покупки. Не делайте их внезапно, обдумайте бюджет.",
+        "Учитесь на ошибках. Анализируйте свои финансовые решения и ошибки.",
+        "Соблюдайте налоговые обязательства. Понимание налогов поможет избежать штрафов.",
+        "Не забывайте про пенсионные накопления. Начинайте откладывать на пенсию как можно раньше.",
+        "Учитывайте инфляцию. Это поможет вам рассчитывать на будущее.",
+        "Делитесь знаниями. Обменивайтесь опытом с друзьями и близкими."
     ]
     
-    tips_msg = "\n".join(tips)
-    bot.send_message(message.chat.id, f"Советы по финансовой грамотности:\n{tips_msg}")
+    # Случайным образом выбираем 5 уникальных советов
+    selected_tips = random.sample(all_tips, k=min(5, len(all_tips)))
     
-    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+    # Формируем сообщение с советами, сохраняя порядок
+    tips_msg = "\n".join([f"{i + 1}. {tip}" for i, tip in enumerate(selected_tips)])
+    response_message = f"⬇️Вот тебе несколько советов по финансовой грамотности⬇️\n{tips_msg}"
+    
+    try:
+        bot.send_message(message.chat.id, response_message)
+        bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+    except Exception as e:
+        print(f"Ошибка при отправке сообщения: {e}")
 
 
 def set_reminder_amount(message):
@@ -192,7 +217,7 @@ def add_reminder(message, amount, reminder_message):
         bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
         
     except ValueError:
-        bot.send_message(message.chat.id, "Пожалуйста, введите время в корректном формате.")
+        bot.send_message(message.chat.id, "❌Пожалуйста, введите время в корректном формате.")
         bot.register_next_step_handler(message, lambda msg: add_reminder(msg, amount, reminder_message))
 
 # Просмотр напоминаний
@@ -207,5 +232,81 @@ def view_reminders(message):
         bot.send_message(message.chat.id, "У вас пока нет напоминаний.")
     
     bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+
+    
+def go_to_savings(message):
+    user_id = message.from_user.id
+    bot.send_message(message.chat.id, "Вы в копилке. Выберите действие:", reply_markup=savings_menu_keyboard())
+
+def savings_menu_keyboard():
+    keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add("💲Просмотреть копилку")
+    keyboard.add("➕Добавить средства в копилку")
+    keyboard.add("📍Установить цель накоплений")
+    keyboard.add("🔙Назад в главное меню")
+    return keyboard
+
+@bot.message_handler(func=lambda message: message.text == "💲Перейти в копилку💲")
+def handle_go_to_savings(message):
+    go_to_savings(message)
+
+@bot.message_handler(func=lambda message: message.text == "💲Просмотреть копилку")
+def handle_view_savings(message):
+    user_id = message.from_user.id
+    total_savings = users_data[user_id].get('savings', 0)
+    target_savings = users_data[user_id].get('target_savings', 0)
+
+    if target_savings > 0:
+        progress = total_savings / target_savings * 100
+        line_length = 20  # Длина линии прогресса
+        filled_length = int(line_length * progress // 100)
+        bar = '█' * filled_length + '-' * (line_length - filled_length)
+        response = f"Ваша копилка:\n\nНакоплено: {total_savings} рублей\nЦель: {target_savings} рублей\nПрогресс: [{bar}] {progress:.2f}%"
+    else:
+        response = "❌Цель накоплений не установлена."
+
+    bot.send_message(message.chat.id, response, reply_markup=savings_menu_keyboard())
+
+@bot.message_handler(func=lambda message: message.text == "➕Добавить средства в копилку")
+def handle_add_to_savings(message):
+    bot.send_message(message.chat.id, "Введите сумму для добавления в копилку:")
+    bot.register_next_step_handler(message, save_to_savings)
+
+def save_to_savings(message):
+    user_id = message.from_user.id
+    try:
+        amount = float(message.text)
+        users_data[user_id]['savings'] = users_data[user_id].get('savings', 0) + amount
+        bot.send_message(message.chat.id, f"Вы успешно добавили {amount} рублей в копилку.")
+        bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=savings_menu_keyboard())
+    except ValueError:
+        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
+        bot.register_next_step_handler(message, save_to_savings)
+
+@bot.message_handler(func=lambda message: message.text == "📍Установить цель накоплений")
+def handle_set_target_savings(message):
+    bot.send_message(message.chat.id, "Сколько вы хотите накопить?:")
+    bot.register_next_step_handler(message, save_target_savings)
+
+def save_target_savings(message):
+    user_id = message.from_user.id
+    try:
+        target_amount = float(message.text)
+        users_data[user_id]['target_savings'] = target_amount
+        bot.send_message(message.chat.id, f"Цель накоплений установлена на уровне {target_amount} рублей.")
+        bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=savings_menu_keyboard())
+    except ValueError:
+        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
+        bot.register_next_step_handler(message, save_target_savings)
+
+@bot.message_handler(func=lambda message: message.text == "🔙Назад в главное меню")
+def handle_back_to_main_menu(message):
+
+    bot.send_message(message.chat.id, "Вы вернулись в главное меню.", reply_markup=main_menu_keyboard())
+
+
+@bot.message_handler(func=lambda message: True)
+def unknown_message(message):
+    bot.send_message(message.chat.id, "Я не понимаю вас😔. Пожалуйста, выберите что-то из меню.")
 
 bot.polling(none_stop=True)
