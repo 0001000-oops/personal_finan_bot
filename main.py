@@ -6,18 +6,13 @@ import time
 from datetime import datetime, timedelta
 import random
 
-
 logging.basicConfig(level=logging.INFO)
-
 
 API_TOKEN = '7880925636:AAEBv-iQKTL6rgGq6Y3PDCtMm38FsMqX194'
 bot = telebot.TeleBot(API_TOKEN)
 
 users_data = {}
 user_authentication = {}   
-
-
-
 
 def main_menu_keyboard():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -27,8 +22,6 @@ def main_menu_keyboard():
     keyboard.add("⏰Добавить напоминание", "👀Посмотреть напоминания")
     keyboard.add("💲Перейти в копилку💲")
     return keyboard
-
-
 
 def reminder_checker():
     while True:
@@ -43,9 +36,6 @@ def reminder_checker():
 
 # Запускаем поток для проверки напоминаний
 threading.Thread(target=reminder_checker, daemon=True).start()
-
-
-
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -87,8 +77,6 @@ def main_menu(message):
     elif message.text == "👀Посмотреть напоминания":
         view_reminders(message)
 
-
-
 def add_expense(message):
     user_id = message.from_user.id
     try:
@@ -100,7 +88,6 @@ def add_expense(message):
     except ValueError:
         bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
         bot.register_next_step_handler(message, add_expense)
-
 
 def view_expenses(message):
     user_id = message.from_user.id
@@ -240,9 +227,8 @@ def go_to_savings(message):
 
 def savings_menu_keyboard():
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add("💲Просмотреть копилку")
-    keyboard.add("➕Добавить средства в копилку")
-    keyboard.add("📍Установить цель накоплений")
+    keyboard.add("💲Просмотреть копилку","➕Добавить средства в копилку")
+    keyboard.add("📍Установить цель накоплений", "🗑️Сбросить копилку")
     keyboard.add("🔙Назад в главное меню")
     return keyboard
 
@@ -263,7 +249,7 @@ def handle_view_savings(message):
         bar = '█' * filled_length + '-' * (line_length - filled_length)
         response = f"Ваша копилка:\n\nНакоплено: {total_savings} рублей\nЦель: {target_savings} рублей\nПрогресс: [{bar}] {progress:.2f}%"
     else:
-        response = "❌Цель накоплений не установлена."
+        response = "❌Вы еще не начали копить."
 
     bot.send_message(message.chat.id, response, reply_markup=savings_menu_keyboard())
 
@@ -285,7 +271,7 @@ def save_to_savings(message):
 
 @bot.message_handler(func=lambda message: message.text == "📍Установить цель накоплений")
 def handle_set_target_savings(message):
-    bot.send_message(message.chat.id, "Сколько вы хотите накопить?:")
+    bot.send_message(message.chat.id, "Сколько вы хотите накопить?")
     bot.register_next_step_handler(message, save_target_savings)
 
 def save_target_savings(message):
@@ -303,6 +289,19 @@ def save_target_savings(message):
 def handle_back_to_main_menu(message):
 
     bot.send_message(message.chat.id, "Вы вернулись в главное меню.", reply_markup=main_menu_keyboard())
+
+
+@bot.message_handler(func=lambda message: message.text == "💲Перейти в копилку💲")
+def handle_go_to_savings(message):
+    go_to_savings(message)
+
+@bot.message_handler(func=lambda message: message.text == "🗑️Сбросить копилку")
+def handle_reset_savings(message):
+    user_id = message.from_user.id
+    users_data[user_id]['savings'] = 0
+    users_data[user_id]['target_savings'] = 0  # Сброс цели накоплений (опционально)
+    bot.send_message(message.chat.id, "Копилка успешно сброшена.")
+    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=savings_menu_keyboard())
 
 
 @bot.message_handler(func=lambda message: True)
