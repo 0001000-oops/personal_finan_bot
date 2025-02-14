@@ -31,14 +31,13 @@
 2. cd ваш_репозиторий
 
 Установите необходимые зависимости:
-pip install pyTelegramBotAPI 
+- pip install pyTelegramBotAPI 
 
 ### Настройка
 
 1. Создайте бота в Telegram с помощью [BotFather](https://t.me/botfather) и получите токен.
 2. В файле 'main.py' добавьте ваш токен:
 
-python
 TOKEN = 'ВАШ_ТОКЕН'
 
 ## Использование
@@ -46,7 +45,7 @@ TOKEN = 'ВАШ_ТОКЕН'
 Запустите бота:
 
 bash
-python main.py
+- python main.py
 
 Теперь вы можете начать взаимодействовать с ботом в Telegram!
 
