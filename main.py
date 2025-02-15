@@ -309,4 +309,4 @@ def unknown_message(message):
     bot.send_message(message.chat.id, "Я не понимаю вас😔. Пожалуйста, выберите что-то из меню.")
 
 if __name__ == '__main__':
-bot.polling(none_stop=True)
+    bot.polling(none_stop=True)
