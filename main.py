@@ -308,6 +308,11 @@ def handle_view_savings(message):
     total_savings = users_data[user_id].get('savings', 0)
     target_savings = users_data[user_id].get('target_savings', 0)
     target_description = users_data[user_id].get('target_description', "Не установлено")
+
+    # Проверка достижения цели
+    if total_savings >= target_savings and target_savings > 0:
+        bot.send_message(message.chat.id, "🎉 Поздравляем! Вы достигли своей цели по накоплениям!")
+
     if target_savings > 0:
         progress = total_savings / target_savings * 100
         line_length = 20  # Длина линии прогресса
@@ -323,7 +328,6 @@ def handle_view_savings(message):
         response = "❌Вы еще не начали копить."
 
     bot.send_message(message.chat.id, response, reply_markup=savings_menu_keyboard())
-
 
 def save_target_description(message, target_amount):
     user_id = message.from_user.id
