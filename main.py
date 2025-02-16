@@ -50,8 +50,7 @@ def main_menu(message):
     user_id = message.from_user.id
     
     if message.text == "💸Добавить расход":
-        bot.send_message(message.chat.id, "Введите сумму расхода:")
-        bot.register_next_step_handler(message, add_expense)
+        handle_add_expense(message)
 
     elif message.text == "👀Посмотреть расходы":
         view_expenses(message)
@@ -64,8 +63,7 @@ def main_menu(message):
         bot.register_next_step_handler(message, set_budget)
 
     elif message.text == "👀Посмотреть бюджет":
-        budget = users_data[user_id]['budget']
-        bot.send_message(message.chat.id, f"Ваш текущий бюджет: {budget}")
+        view_budget(message)
 
     elif message.text == "💡Советы по финансовой грамотности":
         financial_tips(message)
@@ -77,52 +75,15 @@ def main_menu(message):
     elif message.text == "👀Посмотреть напоминания":
         view_reminders(message)
 
-def add_expense(message):
+def handle_add_expense(message):
     user_id = message.from_user.id
-    try:
-        amount = float(message.text)
-        users_data[user_id]['expenses'].append(amount)
-        bot.send_message(message.chat.id, f"Расход {amount} добавлен.")
-        bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+    bot.send_message(message.chat.id, "Введите категорию расхода:")
+    bot.register_next_step_handler(message, lambda msg: choose_category(msg, user_id))
 
-    except ValueError:
-        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
-        bot.register_next_step_handler(message, add_expense)
-
-def view_expenses(message):
-    user_id = message.from_user.id
-    expenses = users_data[user_id]['expenses']
-    
-    if expenses:
-        response = "\n".join(f"Расход: {exp}" for exp in expenses)
-        bot.send_message(message.chat.id, f"Ваши расходы:\n{response}")
-    else:
-        bot.send_message(message.chat.id, "У вас пока нет расходов.")
-    
-    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
-
-def analyze_expenses(message):
-    user_id = message.from_user.id
-    expenses = users_data[user_id]['expenses']
-    
-    if expenses:
-        total_expenses = sum(expenses)
-        average_expense = total_expenses / len(expenses)
-        max_expense = max(expenses)
-        min_expense = min(expenses)
-        
-        analysis_msg = (
-            f"Общие расходы: {total_expenses}\n"
-            f"Средний расход: {average_expense}\n"
-            f"Максимальный расход: {max_expense}\n"
-            f"Минимальный расход: {min_expense}"
-        )
-        
-        bot.send_message(message.chat.id, analysis_msg)
-    else:
-        bot.send_message(message.chat.id, "У вас пока нет расходов для анализа.")
-    
-    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+def choose_category(message, user_id):
+    category = message.text
+    bot.send_message(message.chat.id, "Введите сумму расхода:")
+    bot.register_next_step_handler(message, lambda msg: save_expense(msg, user_id, category))
 
 
 def set_budget(message):
@@ -135,6 +96,92 @@ def set_budget(message):
     except ValueError:
         bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму бюджета.")
         bot.register_next_step_handler(message, set_budget)
+
+
+def view_budget(message):
+    user_id = message.from_user.id
+    budget = users_data[user_id].get('budget', 0)
+    total_expenses = sum(exp['amount'] for exp in users_data[user_id].get('expenses', []))
+    remaining_budget = budget - total_expenses
+    
+    bot.send_message(
+        message.chat.id,
+        f"Ваш изначальный бюджет: {budget}\n"
+        f"Общие расходы: {total_expenses}\n"
+        f"Ваш текущий бюджет: {remaining_budget:.2f}"
+    )
+    
+    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+
+
+def save_expense(message, user_id, category):
+    try:
+        amount = float(message.text)
+        
+        # Проверяем, установлен ли бюджет
+        if 'budget' in users_data[user_id]:
+            current_budget = users_data[user_id]['budget']
+            total_expenses = sum(exp['amount'] for exp in users_data[user_id].get('expenses', []))
+            remaining_budget = current_budget - total_expenses
+            
+            # Проверяем, достаточно ли бюджета для нового расхода
+            if amount > remaining_budget:
+                bot.send_message(message.chat.id, f"❌ У вас недостаточно средств. Остаток бюджета: {remaining_budget:.2f}")
+                return
+        # Инициализируем список расходов, если он еще не создан
+        if 'expenses' not in users_data[user_id]:
+            users_data[user_id]['expenses'] = []
+        
+        users_data[user_id]['expenses'].append({'category': category, 'amount': amount})
+        bot.send_message(message.chat.id, f"Расход {amount} добавлен в категорию '{category}'.")
+        bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+    except ValueError:
+        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
+        bot.register_next_step_handler(message, lambda msg: save_expense(msg, user_id, category))
+
+def view_expenses(message):
+    user_id = message.from_user.id
+    expenses = users_data[user_id].get('expenses', [])
+    
+    if expenses:
+        response = "\n".join(f"Категория: {exp['category']}, Расход: {exp['amount']}" for exp in expenses)
+        bot.send_message(message.chat.id, f"Ваши расходы:\n{response}")
+    else:
+        bot.send_message(message.chat.id, "У вас пока нет расходов.")
+    
+    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+
+def analyze_expenses(message):
+    user_id = message.from_user.id
+    expenses = users_data[user_id].get('expenses', [])
+    
+    if expenses:
+        total_expenses = sum(exp['amount'] for exp in expenses)
+        average_expense = total_expenses / len(expenses)
+        max_expense = max(exp['amount'] for exp in expenses)
+        min_expense = min(exp['amount'] for exp in expenses)
+
+        # Анализ по категориям
+        categories = {}
+        for exp in expenses:
+            categories.setdefault(exp['category'], 0)
+            categories[exp['category']] += exp['amount']
+
+        analysis_msg = (
+            f"Общие расходы: {total_expenses}\n"
+            f"Средний расход: {average_expense:.2f}\n"
+            f"Максимальный расход: {max_expense}\n"
+            f"Минимальный расход: {min_expense}\n\n"
+            "Расходы по категориям:\n" +
+            "\n".join(f"{cat}: {amount}" for cat, amount in categories.items())
+        )
+        
+        bot.send_message(message.chat.id, analysis_msg)
+    else:
+        bot.send_message(message.chat.id, "У вас пока нет расходов для анализа.")
+    
+    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=main_menu_keyboard())
+
 
 
 def financial_tips(message):
@@ -236,22 +283,59 @@ def savings_menu_keyboard():
 def handle_go_to_savings(message):
     go_to_savings(message)
 
+
+@bot.message_handler(func=lambda message: message.text == "📍Установить цель накоплений")
+def handle_set_target_savings(message):
+    bot.send_message(message.chat.id, "Сколько вы хотите накопить?")
+    bot.register_next_step_handler(message, save_target_savings)    
+def save_target_savings(message):
+    user_id = message.from_user.id
+    try:
+        target_amount = float(message.text)
+        users_data[user_id]['target_savings'] = target_amount
+        
+        # Запрашиваем, на что будет потрачена эта сумма
+        bot.send_message(message.chat.id, "На что вы хотите накопить? Пожалуйста, укажите цель:")
+        bot.register_next_step_handler(message, save_target_description, target_amount)
+    except ValueError:
+        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
+        bot.register_next_step_handler(message, save_target_savings)
+
+
 @bot.message_handler(func=lambda message: message.text == "💲Просмотреть копилку")
 def handle_view_savings(message):
     user_id = message.from_user.id
     total_savings = users_data[user_id].get('savings', 0)
     target_savings = users_data[user_id].get('target_savings', 0)
-
+    target_description = users_data[user_id].get('target_description', "Не установлено")
     if target_savings > 0:
         progress = total_savings / target_savings * 100
         line_length = 20  # Длина линии прогресса
         filled_length = int(line_length * progress // 100)
-        bar = '█' * filled_length + '-' * (line_length - filled_length)
-        response = f"Ваша копилка:\n\nНакоплено: {total_savings} рублей\nЦель: {target_savings} рублей\nПрогресс: [{bar}] {progress:.2f}%"
+        bar = '█' * filled_length + '-' * (line_length - filled_length)  # Линия прогресса
+
+        response = (f"Ваша копилка:\n\n"
+                    f"Накоплено: {total_savings} рублей\n"
+                    f"Цель: {target_savings} рублей\n"
+                    f"На что: {target_description}\n"
+                    f"Прогресс: [{bar}] {progress:.2f}%")
     else:
         response = "❌Вы еще не начали копить."
 
     bot.send_message(message.chat.id, response, reply_markup=savings_menu_keyboard())
+
+
+def save_target_description(message, target_amount):
+    user_id = message.from_user.id
+    target_description = message.text
+    
+    # Сохраняем описание цели в данных пользователя
+    users_data[user_id]['target_description'] = target_description
+    
+    bot.send_message(message.chat.id, f"Цель накоплений установлена на уровне {target_amount} рублей.\n"
+                                       f"Цель: {target_description}.")
+    bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=savings_menu_keyboard())
+
 
 @bot.message_handler(func=lambda message: message.text == "➕Добавить средства в копилку")
 def handle_add_to_savings(message):
@@ -269,21 +353,6 @@ def save_to_savings(message):
         bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
         bot.register_next_step_handler(message, save_to_savings)
 
-@bot.message_handler(func=lambda message: message.text == "📍Установить цель накоплений")
-def handle_set_target_savings(message):
-    bot.send_message(message.chat.id, "Сколько вы хотите накопить?")
-    bot.register_next_step_handler(message, save_target_savings)
-
-def save_target_savings(message):
-    user_id = message.from_user.id
-    try:
-        target_amount = float(message.text)
-        users_data[user_id]['target_savings'] = target_amount
-        bot.send_message(message.chat.id, f"Цель накоплений установлена на уровне {target_amount} рублей.")
-        bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=savings_menu_keyboard())
-    except ValueError:
-        bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
-        bot.register_next_step_handler(message, save_target_savings)
 
 @bot.message_handler(func=lambda message: message.text == "🔙Назад в главное меню")
 def handle_back_to_main_menu(message):
