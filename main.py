@@ -16,7 +16,7 @@ user_authentication = {}
 
 def main_menu_keyboard():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add("👤Ваш бюджет", "📊Ваши расходы")
+    keyboard.add("👤Мой бюджет", "📊Мои расходы")
     keyboard.add("⏰Добавить напоминание", "👀Посмотреть напоминания")
     keyboard.add("💲Перейти в копилку💲")
     keyboard.add("💡Советы по финансовой грамотности")
@@ -58,11 +58,15 @@ threading.Thread(target=reminder_checker, daemon=True).start()
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
-    users_data.setdefault(user_id, {'expenses': [], 'budget': 0, 'reminders': []})
+    if user_id not in users_data:
+        users_data[user_id] = {
+            'budget': 0,
+            'expenses': {},
+        }
     bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name}! Добро пожаловать в Личный финансовый бот! Выберите действие:", reply_markup=main_menu_keyboard())
 
 @bot.message_handler(func=lambda message: message.text in [
-    "💡Советы по финансовой грамотности", "⏰Добавить напоминание", "👀Посмотреть напоминания", "👤Ваш бюджет", "📊Мои расходы"])
+    "💡Советы по финансовой грамотности", "⏰Добавить напоминание", "👀Посмотреть напоминания", "👤Мой бюджет", "📊Мои расходы"])
 def main_menu(message):
     user_id = message.from_user.id
 
@@ -76,7 +80,7 @@ def main_menu(message):
     elif message.text == "👀Посмотреть напоминания":
         view_reminders(message)
 
-    elif message.text == "👤Ваш бюджет":
+    elif message.text == "👤Мой бюджет":
         bot.send_message(message.chat.id, "Выберите действие с бюджетом:", reply_markup=budget_menu_keyboard())
 
     elif message.text == "📊Мои расходы":
@@ -94,24 +98,43 @@ def budget_menu(message):
         budget = users_data[user_id]['budget']
         bot.send_message(message.chat.id, f"Ваш текущий бюджет: {budget}")
 
+
+
 @bot.message_handler(func=lambda message: message.text == "💸Добавить расход")
 def add_expense_menu(message):
-   bot.send_message(message.chat.id, "Выберите сумму расхода:", reply_markup=expense_selection_keyboard())
+    bot.send_message(message.chat.id, "Введите категорию расхода:")
+    bot.register_next_step_handler(message, enter_expense_category)
+
+def enter_expense_category(message):
+    user_id = message.from_user.id
+    category = message.text
+    bot.send_message(message.chat.id, "Выберите сумму расхода:", reply_markup=expense_selection_keyboard())
+    bot.set_state(user_id, category)
+
+
 
 @bot.message_handler(func=lambda message: message.text in ["100", "200", "300", "400", "500"])
 def add_expense_fixed(message):
     user_id = message.from_user.id
     expense_amount = float(message.text)
-    
-    users_data[user_id]['expenses'].append(expense_amount)
+    category = bot.get_state(user_id)  # Получаем сохраненную категорию
+
+    if category not in users_data[user_id]['expenses']:
+        users_data[user_id]['expenses'][category] = []  # Создаем список для новой категории
+
+    users_data[user_id]['expenses'][category].append(expense_amount)
     users_data[user_id]['budget'] -= expense_amount  # Вычитаем из бюджета
-    bot.send_message(message.chat.id, f"Вы добавили расход: {expense_amount}. Текущий бюджет: {users_data[user_id]['budget']}")
+    bot.send_message(message.chat.id, f"Вы добавили расход: {expense_amount} в категорию '{category}'. Текущий бюджет: {users_data[user_id]['budget']}")
+    
+    # Очистка состояния
+    bot.delete_state(user_id)
+    
     bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=expenses_menu_keyboard())
 
 @bot.message_handler(func=lambda message: message.text == "🔢Ввести свою сумму")
 def enter_custom_expense(message):
     bot.send_message(message.chat.id, "Введите свою сумму расхода:")
-    bot.register_next_step_handler(message, add_expense_custom)
+    bot.register_next_step_handler(message, add_expense_fixed )
 
 @bot.message_handler(func=lambda message: message.text in ["👀Посмотреть расходы", "📈Анализ расходов"])
 def expenses_menu(message):
@@ -149,25 +172,37 @@ def add_expense_custom(message):
 def view_expenses(message):
     user_id = message.from_user.id
     expenses = users_data[user_id]['expenses']
+    
     if expenses:
-        expenses_list = "\n".join(map(str, expenses))
-        total_expenses = sum(expenses)
-        bot.send_message(message.chat.id, f"Ваши расходы:\n{expenses_list}\nОбщая сумма расходов: {total_expenses}")
+        view_message = "Ваши расходы по категориям:\n"
+        
+        for category, expense_list in expenses.items():
+            category_total = sum(expense_list)
+            view_message += f"{category}: {category_total} (Всего записей: {len(expense_list)})\n"
+        
+        bot.send_message(message.chat.id, view_message)
     else:
-        bot.send_message(message.chat.id, "У вас нет расходов.")
+        bot.send_message(message.chat.id, "У вас нет записанных расходов.")
 
+
+@bot.message_handler(func=lambda message: message.text == "📊Анализ расходов")
 def analyze_expenses(message):
     user_id = message.from_user.id
     expenses = users_data[user_id]['expenses']
     
     if expenses:
-        total_expenses = sum(expenses)
-        average_expense = total_expenses / len(expenses)
-        bot.send_message(message.chat.id, f"Общая сумма расходов: {total_expenses}\nСредняя сумма расхода: {average_expense}")
-        # Здесь можно добавить более детальный анализ по категориям (необходимо будет реализовать)
+        total_expenses = sum(sum(expense_list) for expense_list in expenses.values())
+        average_expense = total_expenses / sum(len(expense_list) for expense_list in expenses.values())
+        
+        analysis_message = f"Общая сумма расходов: {total_expenses}\nСредняя сумма расхода: {average_expense}\n\nРасходы по категориям:\n"
+        
+        for category, expense_list in expenses.items():
+            category_total = sum(expense_list)
+            analysis_message += f"{category}: {category_total}\n"
+        
+        bot.send_message(message.chat.id, analysis_message)
     else:
         bot.send_message(message.chat.id, "У вас нет расходов для анализа.")
-
 
 
 
@@ -211,53 +246,56 @@ def financial_tips(message):
         print(f"Ошибка при отправке сообщения: {e}")
 
 
+# Функция для установки суммы напоминания
 def set_reminder_amount(message):
     user_id = message.from_user.id
     amount = message.text
 
-    # Проверка на корректность суммы (можно добавить дополнительные проверки)
     try:
         amount = float(amount)
         bot.send_message(message.chat.id, "Введите текст напоминания:")
-        bot.register_next_step_handler(message, lambda msg: set_reminder_time(msg, amount))
+        bot.register_next_step_handler(message, lambda msg: set_reminder_datetime(msg, amount))
     except ValueError:
         bot.send_message(message.chat.id, "Пожалуйста, введите корректную сумму.")
         bot.send_message(message.chat.id, "Введите сумму платежа:")
         bot.register_next_step_handler(message, set_reminder_amount)
 
-def set_reminder_time(message, amount):
+# Функция для установки даты и времени напоминания
+def set_reminder_datetime(message, amount):
     user_id = message.from_user.id
     reminder_text = message.text
 
-    bot.send_message(message.chat.id, "Введите время напоминания в формате 'ЧЧ:ММ' (24-часовой формат):")
+    bot.send_message(message.chat.id, "Введите дату и время напоминания в формате 'ДД.ММ.ГГГГ ЧЧ:ММ':")
     bot.register_next_step_handler(message, lambda msg: add_reminder(msg, reminder_text, amount))
 
+# Функция для добавления напоминания
 def add_reminder(message, reminder_text, amount):
     user_id = message.from_user.id
-    time_str = message.text
+    datetime_str = message.text
     
     try:
-        reminder_time = datetime.strptime(time_str, '%H:%M').time()
-        now = datetime.now()
-        
-        # Устанавливаем время напоминания на сегодня или завтра
-        reminder_datetime = datetime.combine(now.date(), reminder_time)
-        if reminder_datetime < now:
-            reminder_datetime += timedelta(days=1)  # Если время уже прошло, устанавливаем на завтра
+        # Пробуем распарсить дату и время
+        reminder_datetime = datetime.strptime(datetime_str, '%d.%m.%Y %H:%M')
+
+        # Проверяем наличие списка напоминаний у пользователя
+        if 'reminders' not in users_data[user_id]:
+            users_data[user_id]['reminders'] = []  # Инициализируем список напоминаний
 
         # Добавляем напоминание в данные пользователя
         users_data[user_id]['reminders'].append({
             'time': reminder_datetime,
             'message': reminder_text,
-             'amount': amount })
+            'amount': amount
+        })
         
-        bot.send_message(message.chat.id, f"Напоминание установлено на {reminder_datetime.strftime('%H:%M')} о платеже {reminder_text} на сумму {amount}.")
+        bot.send_message(message.chat.id, f"Напоминание установлено на {reminder_datetime.strftime('%d.%m.%Y %H:%M')} о платеже '{reminder_text}' на сумму {amount}.")
 
     except ValueError:
-        bot.send_message(message.chat.id, "Некорректный формат времени. Пожалуйста, попробуйте снова.")
-        bot.send_message(message.chat.id, "Введите время напоминания в формате 'ЧЧ:ММ' (24-часовой формат):")
+        bot.send_message(message.chat.id, "Некорректный формат. Пожалуйста, попробуйте снова.")
+        bot.send_message(message.chat.id, "Введите дату и время напоминания в формате 'ДД.ММ.ГГГГ ЧЧ:ММ':")
         bot.register_next_step_handler(message, lambda msg: add_reminder(msg, reminder_text, amount))
 
+# Функция для просмотра напоминаний
 def view_reminders(message):
     user_id = message.from_user.id
     reminders = users_data[user_id].get('reminders', [])
@@ -267,9 +305,8 @@ def view_reminders(message):
     else:
         response = "Ваши напоминания:\n"
         for reminder in reminders:
-            response += f"- {reminder['message']} на сумму {reminder['amount']} в {reminder['time'].strftime('%H:%M')}\n"
+            response += f"- {reminder['message']} на сумму {reminder['amount']} в {reminder['time'].strftime('%d.%m.%Y %H:%M')}\n"
         bot.send_message(message.chat.id, response)
-
     
 def go_to_savings(message):
     user_id = message.from_user.id
@@ -277,7 +314,7 @@ def go_to_savings(message):
 
 def savings_menu_keyboard():
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add("💲Просмотреть копилку","➕Добавить средства в копилку")
+    keyboard.add(" Просмотреть копилку","➕Добавить средства в копилку")
     keyboard.add("📍Установить цель накоплений", "🗑️Сбросить копилку")
     keyboard.add("🔙Назад в главное меню")
     return keyboard
