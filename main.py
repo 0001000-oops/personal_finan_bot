@@ -206,8 +206,6 @@ def analyze_expenses(message):
 
 
 
-
-
 def financial_tips(message):
     all_tips = [
         "Создайте бюджет. Записывайте доходы и расходы, чтобы видеть, куда уходят деньги.",
