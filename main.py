@@ -312,8 +312,8 @@ def go_to_savings(message):
 
 def savings_menu_keyboard():
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(" Просмотреть копилку","➕Добавить средства в копилку")
-    keyboard.add("📍Установить цель накоплений", "🗑️Сбросить копилку")
+    keyboard.add("📍Начать копить","➕Добавить средства в копилку")
+    keyboard.add("💲Просмотреть копилку", "🗑️Сбросить копилку")
     keyboard.add("🔙Назад в главное меню")
     return keyboard
 
@@ -322,7 +322,7 @@ def handle_go_to_savings(message):
     go_to_savings(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "📍Установить цель накоплений")
+@bot.message_handler(func=lambda message: message.text == "📍Начать копить")
 def handle_set_target_savings(message):
     bot.send_message(message.chat.id, "Сколько вы хотите накопить?")
     bot.register_next_step_handler(message, save_target_savings)    
