@@ -65,8 +65,8 @@
 
 Сначала клонируйте репозиторий.
 В терминале введите:
-- git clone https://github.com/вашпользователь/вашрепозиторий.git
-- cd ваш_репозиторий
+- git clone https://github.com/yourusername/personal_finan_bot.git
+- cd personal_finan_bot
 
 Установите необходимые зависимости:
 - pip install pyTelegramBotAPI 
