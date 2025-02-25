@@ -99,19 +99,47 @@ def budget_menu(message):
         bot.send_message(message.chat.id, f"Ваш текущий бюджет: {budget}")
 
 
+def expens_selection_keyboard():
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # Добавляем предустановленные категории
+    categories = ["Еда", "Транспорт", "Развлечения", "Здоровье"]
+    for category in categories:
+        keyboard.add(category)
+    # Добавляем кнопку для ввода своей категории
+    keyboard.add("📥 Ввести свою категорию")
+    return keyboard
+
 
 @bot.message_handler(func=lambda message: message.text == "💸Добавить расход")
 def add_expense_menu(message):
-    bot.send_message(message.chat.id, "Введите категорию расхода:")
+    bot.send_message(message.chat.id, "Выберите категорию расхода или введите свою:", reply_markup=expens_selection_keyboard())
     bot.register_next_step_handler(message, enter_expense_category)
 
 def enter_expense_category(message):
     user_id = message.from_user.id
     category = message.text
-    bot.send_message(message.chat.id, "Выберите сумму расхода:", reply_markup=expense_selection_keyboard())
-    bot.set_state(user_id, category)
+    
+    if category == "📥 Ввести свою категорию":
+        bot.send_message(message.chat.id, "Выберите категорию расхода или введите свою:")
+        bot.register_next_step_handler(message, save_custom_category)
+    else:
+        bot.send_message(message.chat.id, "Выберите сумму расхода или введите свою:", reply_markup=expense_selection_keyboard())
+        bot.set_state(user_id, category)
 
+def save_custom_category(message):
+    user_id = message.from_user.id
+    custom_category = message.text
+    
+    # Сохраняем новую категорию в структуре данных пользователя
+    if 'custom_categories' not in users_data[user_id]:
+        users_data[user_id]['custom_categories'] = []
+    
+    if custom_category not in users_data[user_id]['custom_categories']:
+        users_data[user_id]['custom_categories'].append(custom_category)
 
+    # Теперь добавляем эту категорию в меню выбора
+    bot.send_message(message.chat.id, f"Категория '{custom_category}' сохранена. Выберите сумму расхода или введите свою:", reply_markup=expense_selection_keyboard())
+    bot.set_state(user_id, custom_category)
 
 @bot.message_handler(func=lambda message: message.text in ["100", "200", "300", "400", "500"])
 def add_expense_fixed(message):
@@ -134,7 +162,7 @@ def add_expense_fixed(message):
 @bot.message_handler(func=lambda message: message.text == "🔢Ввести свою сумму")
 def enter_custom_expense(message):
     bot.send_message(message.chat.id, "Введите свою сумму расхода:")
-    bot.register_next_step_handler(message, add_expense_fixed )
+    bot.register_next_step_handler(message, add_expense_fixed)
 
 @bot.message_handler(func=lambda message: message.text in ["👀Посмотреть расходы", "📈Анализ расходов"])
 def expenses_menu(message):
@@ -151,7 +179,7 @@ def add_to_budget(message):
     try:
         amount = float(message.text)
         users_data[user_id]['budget'] += amount
-        bot.send_message(message.chat.id, f"Вы добавили {amount} к вашему бюджету. Текущий бюджет: {users_data[user_id]['budget']}")
+        bot.send_message(message.chat.id, f"Вы добавили {amount} к вашему бюджету.")
         bot.send_message(message.chat.id, "Выберите следующее действие:", reply_markup=budget_menu_keyboard())
     except ValueError:
         bot.send_message(message.chat.id, "❌Пожалуйста, введите корректную сумму.")
@@ -203,7 +231,6 @@ def analyze_expenses(message):
         bot.send_message(message.chat.id, analysis_message)
     else:
         bot.send_message(message.chat.id, "У вас нет расходов для анализа.")
-
 
 
 def financial_tips(message):
