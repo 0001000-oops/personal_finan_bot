@@ -120,7 +120,7 @@ def enter_expense_category(message):
     category = message.text
     
     if category == "📥 Ввести свою категорию":
-        bot.send_message(message.chat.id, "Выберите категорию расхода или введите свою:")
+        bot.send_message(message.chat.id, "Введите свою категорию:")
         bot.register_next_step_handler(message, save_custom_category)
     else:
         bot.send_message(message.chat.id, "Выберите сумму расхода или введите свою:", reply_markup=expense_selection_keyboard())
